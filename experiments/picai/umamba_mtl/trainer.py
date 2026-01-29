@@ -126,7 +126,7 @@ class LitModel(pl.LightningModule):
 
 
 if __name__ == "__main__":
-    config = load_config()
+    config = load_config("experiments/picai/umamba_mtl/config.yaml")
 
     data_module = DataModule(
         config,

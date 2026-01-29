@@ -6,10 +6,10 @@ val_every: 3
 early_stopping_patience: 100
 infer_overlap: 0.25
 lr: 0.0001
-batch_size: 4 # 4
+batch_size: 1 # 4
 sw_batch_size: 4
-num_workers: 90
-cache_rate: 1.0
+num_workers: 24
+cache_rate: 0.0
 checkpoint: #trained_models/cspca_algos_dev_picai/UMambaBot_f0_[predicted_prostate_center_zonal]/UMambaBotMTL/lfg0lwnx/epoch=65-pi_cai_score=0.6434.ckpt
 save_checkpoint: True
 save_top_k: 1
@@ -21,7 +21,7 @@ fast_dev_run: False # number of training steps for debugging / disable with: Fal
 
 logger:
   name: wandb
-  active: True
+  active: False
   experiment_name: "UMambaBot_MTL_f0"
   dir: ./trained_models/
   project: tmp_project
@@ -31,7 +31,7 @@ logger:
 
 data:
   dataset_name: picai
-  json_list: ../../../json_datalists/picai/fold_1.json
+  json_list: ../../../json_datalists/picai/fold_0.json
   data_dir: ../../../data
 
 

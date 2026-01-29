@@ -32,6 +32,7 @@ class DataModule(pl.LightningDataModule):
             datalist = self.get_datalist(split)
             self.transforms[split] = self.get_transforms(split) # transform objects are saved for inverse transforms
 
+            print(datalist)
             self.ds[split] = data.CacheDataset(
                 data=datalist,
                 transform=self.transforms[split],

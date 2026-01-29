@@ -2,7 +2,7 @@ import gdown
 import shutil
 import os
 
-download_umamba_prostate_weights = True
+download_umamba_prostate_weights = False
 download_swin_unetr_weights = False
 download_umamba_weights = False
 download_umamba_mtl_weights = True
