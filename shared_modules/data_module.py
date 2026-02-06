@@ -7,6 +7,7 @@ class DataModule(pl.LightningDataModule):
     def __init__(
         self,
         config,
+        debug_index: int = None,
     ):
         super().__init__()
         self.json_list = config.data.json_list
@@ -21,16 +22,29 @@ class DataModule(pl.LightningDataModule):
         self.label_keys = config.transforms.label_keys
         self.all_keys = self.image_keys + self.label_keys
         self.interpolation_modes = ["bilinear" for _ in self.image_keys] + ["nearest" for _ in self.label_keys]
+        self.debug_index = debug_index
 
     def setup(self, stage: str):
         if stage == "test":
             splits = ["test"]
+        elif stage == "debug":
+            splits = ["debug"]
         else:
             splits = ["training", "validation"]
 
         for split in splits:
-            datalist = self.get_datalist(split)
-            self.transforms[split] = self.get_transforms(split) # transform objects are saved for inverse transforms
+            if split == "debug":
+                # For debug, load validation datalist and select single item by index
+                datalist = self.get_datalist("validation")
+                if isinstance(datalist, list):
+                    datalist = [datalist[self.debug_index]]
+                else:
+                    # Handle partitioned dataset case
+                    datalist = [list(datalist)[self.debug_index]]
+                self.transforms[split] = self.get_transforms("validation")
+            else:
+                datalist = self.get_datalist(split)
+                self.transforms[split] = self.get_transforms(split)
 
             print(datalist)
             self.ds[split] = data.CacheDataset(
@@ -48,8 +62,10 @@ class DataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.ds["test"], batch_size=1, pin_memory=True)
-    
-        
+
+    def debug_dataloader(self):
+        return DataLoader(self.ds["debug"], batch_size=1, pin_memory=True)
+
     def get_shared_transforms(self):
         to_discrete_keys = [key for key in self.label_keys if key != "zones"]
         

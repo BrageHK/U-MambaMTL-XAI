@@ -23,6 +23,7 @@ tqdm>=4.67.1
 wandb>=0.22.0
 focal-loss-torch>=0.1.2
 numpy>=2.0.0
+captum
 
 [:sys_platform == "linux"]
 causal-conv1d>=1.5.2

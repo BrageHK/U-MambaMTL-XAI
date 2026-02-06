@@ -34,6 +34,7 @@ Requires-Dist: tqdm>=4.67.1
 Requires-Dist: wandb>=0.22.0
 Requires-Dist: focal-loss-torch>=0.1.2
 Requires-Dist: numpy>=2.0.0
+Requires-Dist: captum
 Dynamic: author
 Dynamic: author-email
 Dynamic: license-file

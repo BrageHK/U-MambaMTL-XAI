@@ -38,7 +38,7 @@ data:
 transforms:
   image_keys: ["image"]
   label_keys: ["pca", "prostate_pred", "zones"] #["pca", "prostate_pred", "zones"]
-  crop_key:  #"prostate_pred" #(Defaults to center crop)
+  crop_key:  "prostate_pred" #(Defaults to center crop)
   spacing: &spacing [.5,.5,3.0] 
   # prostate_crop_margin: [128,128,10] #[128,128,10]
   padding_mode: "reflect" #"reflect"

@@ -31,7 +31,10 @@ dependencies = [
     "tqdm>=4.67.1",
     "wandb>=0.22.0",
     "focal-loss-torch>=0.1.2",
-    "numpy>=2.0.0"
+    "numpy>=2.0.0",
+    "captum",
+    "grad-cam>=1.5.5",
+    "interpret-segmentation>=1.0.0",
 ]
 
 [tool.uv]
@@ -49,6 +52,7 @@ torchvision = [
     { index = "pytorch-cu129", marker = "sys_platform == 'linux'" },
     { index = "pytorch-cpu", marker = "sys_platform == 'darwin'" }
 ]
+captum = { git = "https://github.com/pytorch/captum.git" }
 
 [[tool.uv.index]]
 name = "pytorch-cu129"

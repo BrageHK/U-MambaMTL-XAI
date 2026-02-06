@@ -12,6 +12,7 @@ import torch
 pd.options.mode.chained_assignment = None  # default='warn'
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.gridspec import GridSpec
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def plot_sigmoid(num_channels, current_epoch, all_logits, all_preds, all_targets, s_i, z_i):
@@ -206,26 +207,35 @@ def slice_comparison(image, labels, titles):
 import matplotlib.ticker as ticker
 
 def slice_comparison_multi(image, labels, titles):
-    from matplotlib.colors import LinearSegmentedColormap
-    
+
     vmin = -1
     vmax = 1
-    
+    alpha = 0.3
+
+    # Standard XAI heatmap: blue (low) -> green -> yellow -> red (high)
     cmap = LinearSegmentedColormap.from_list(
-            "RdWhGn", ["red", "white","white", "green"]
-            # "RdWhGn", ["red", "white", "green"]
+            #"RdWhGn", ["red", "white","white", "green"]
+            #"xai_heatmap", ["blue", "cyan", "green", "yellow", "red"]
+            "xai_heatmap", ["blue", "red"]
         )
-    
-    blended_imgs_1 = [blend_images(image=image[0:1], label=label[0:1], cmap=cmap, rescale_arrays=False) if label.shape[0] == 3 else blend_images(image=image[0:1], label=label[0:1], cmap="coolwarm") for label in labels ]
-    blended_imgs_2 = [blend_images(image=image[1:2], label=label[1:2], cmap=cmap, rescale_arrays=False) if label.shape[0] == 3 else blend_images(image=image[1:2], label=label[0:1], cmap="coolwarm") for label in labels]
-    blended_imgs_3 = [blend_images(image=image[2:3], label=label[2:3], cmap=cmap, rescale_arrays=False) if label.shape[0] == 3 else blend_images(image=image[2:3], label=label[0:1], cmap="coolwarm") for label in labels]
+    cmap = "jet"
+
+    blended_imgs_1 = [image[0:1].repeat(3, 1, 1, 1)]
+    blended_imgs_2 = [image[1:2].repeat(3, 1, 1, 1)]
+    blended_imgs_3 = [image[2:3].repeat(3, 1, 1, 1)]
+
+    blended_imgs_1 += [blend_images(image=image[0:1], label=label[0:1], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[0:1], label=label[0:1], rescale_arrays=False) for label in labels ]
+    blended_imgs_2 += [blend_images(image=image[1:2], label=label[1:2], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[1:2], label=label[0:1], rescale_arrays=False) for label in labels]
+    blended_imgs_3 += [blend_images(image=image[2:3], label=label[2:3], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[2:3], label=label[0:1], cmap="coolwarm", rescale_arrays=False) for label in labels]
+
+
     
 
     # Visualization function
     @interact(slice_index=IntSlider(min=0, max=labels[0].shape[-1]-1, description='Slice Index:'))
     def plot_slices(slice_index):
-        fig = plt.figure()#figsize=(6, 5))
-        gs = GridSpec(3, len(labels), width_ratios=[1] * len(labels), wspace=0.015, hspace=0.015)  # Add space for colorbar 0.01
+        fig = plt.figure(figsize=(16, 10))
+        gs = GridSpec(3, len(titles), width_ratios=[1] * len(titles), wspace=0.01, hspace=-0.45)  # Add space for colorbar 0.01
         axs = []
 
         for i, (blended_img, title) in enumerate(zip(blended_imgs_1, titles)):
@@ -277,7 +287,98 @@ def slice_comparison_multi(image, labels, titles):
         # plt.tight_layout()
         plt.show()
 
-    
+
+
+def slice_comparison_multi_gif(image, labels, titles, save_path="slice_comparison.gif", duration=150, dpi=100):
+    """
+    Create a pendulum-style looping GIF from the multi-slice comparison plot.
+
+    Renders each slice as a frame, then reverses the sequence (excluding
+    endpoints) to create a smooth back-and-forth animation.
+
+    Args:
+        image: Input image tensor (C, H, W, D) with 3 channels (T2W, ADC, HBV)
+        labels: List of attribution/label tensors to overlay
+        titles: List of column titles (including raw image column)
+        save_path: Output path for the GIF file
+        duration: Frame duration in milliseconds
+        dpi: Resolution of each frame
+    """
+    vmin = -1
+    vmax = 1
+    alpha = 0.3
+    cmap = "jet"
+
+    blended_imgs_1 = [image[0:1].repeat(3, 1, 1, 1)]
+    blended_imgs_2 = [image[1:2].repeat(3, 1, 1, 1)]
+    blended_imgs_3 = [image[2:3].repeat(3, 1, 1, 1)]
+
+    blended_imgs_1 += [blend_images(image=image[0:1], label=label[0:1], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[0:1], label=label[0:1], rescale_arrays=False) for label in labels]
+    blended_imgs_2 += [blend_images(image=image[1:2], label=label[1:2], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[1:2], label=label[0:1], rescale_arrays=False) for label in labels]
+    blended_imgs_3 += [blend_images(image=image[2:3], label=label[2:3], cmap=cmap, rescale_arrays=False, alpha=alpha) if label.shape[0] == 3 else blend_images(image=image[2:3], label=label[0:1], cmap="coolwarm", rescale_arrays=False) for label in labels]
+
+    n_slices = labels[0].shape[-1]
+    frames = []
+
+    for slice_index in range(n_slices):
+        fig = plt.figure(figsize=(16, 10))
+        gs = GridSpec(3, len(titles), width_ratios=[1] * len(titles), wspace=0.01, hspace=-0.45)
+        axs = []
+
+        for i, (blended_img, title) in enumerate(zip(blended_imgs_1, titles)):
+            ax = fig.add_subplot(gs[0, i])
+            axs.append(ax)
+            ax.imshow(torch.moveaxis(blended_img[:, :, :, slice_index], 0, -1), cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.set_title(title, fontsize=10)
+            ax.xaxis.set_major_locator(ticker.NullLocator())
+            ax.yaxis.set_major_locator(ticker.NullLocator())
+            if i == 0:
+                ax.set_ylabel("T2W")
+
+        for i, (blended_img, title) in enumerate(zip(blended_imgs_2, titles)):
+            ax = fig.add_subplot(gs[1, i])
+            axs.append(ax)
+            ax.imshow(torch.moveaxis(blended_img[:, :, :, slice_index], 0, -1), cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.xaxis.set_major_locator(ticker.NullLocator())
+            ax.yaxis.set_major_locator(ticker.NullLocator())
+            if i == 0:
+                ax.set_ylabel("ADC")
+
+        for i, (blended_img, title) in enumerate(zip(blended_imgs_3, titles)):
+            ax = fig.add_subplot(gs[2, i])
+            axs.append(ax)
+            img_plot = ax.imshow(torch.moveaxis(blended_img[:, :, :, slice_index], 0, -1), cmap=cmap, vmin=vmin, vmax=vmax)
+            ax.xaxis.set_major_locator(ticker.NullLocator())
+            ax.yaxis.set_major_locator(ticker.NullLocator())
+            if i == 0:
+                ax.set_ylabel("HBV")
+
+        plt.colorbar(img_plot, ax=axs)
+        fig.suptitle(f"Slice {slice_index}/{n_slices - 1}", fontsize=12)
+
+        # Render figure to PIL Image
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        frames.append(Image.open(buf).copy())
+        buf.close()
+
+    # Create pendulum sequence: forward + reverse (excluding endpoints)
+    pendulum_frames = frames + frames[-2:0:-1]
+
+    pendulum_frames[0].save(
+        save_path,
+        save_all=True,
+        append_images=pendulum_frames[1:],
+        duration=duration,
+        loop=0
+    )
+
+    print(f"Saved pendulum GIF ({len(pendulum_frames)} frames) to {save_path}")
+    return save_path
+
+
 def fig2img(fig):
     """Convert a Matplotlib figure to a PIL Image and return it"""
 
