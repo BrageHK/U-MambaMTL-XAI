@@ -210,7 +210,7 @@ def slice_comparison_multi(image, labels, titles):
 
     vmin = -1
     vmax = 1
-    alpha = 0.3
+    alpha = 0.5
 
     # Standard XAI heatmap: blue (low) -> green -> yellow -> red (high)
     cmap = LinearSegmentedColormap.from_list(
@@ -218,7 +218,7 @@ def slice_comparison_multi(image, labels, titles):
             #"xai_heatmap", ["blue", "cyan", "green", "yellow", "red"]
             "xai_heatmap", ["blue", "red"]
         )
-    cmap = "jet"
+    cmap = "inferno"
 
     blended_imgs_1 = [image[0:1].repeat(3, 1, 1, 1)]
     blended_imgs_2 = [image[1:2].repeat(3, 1, 1, 1)]

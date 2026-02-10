@@ -1,14 +1,25 @@
 import torch
+from torchvision import transforms
+from monai.transforms.intensity.array import ScaleIntensityRangePercentiles
 import numpy as np
 from tqdm import tqdm
 from pytorch_grad_cam import AblationCAM
 from captum.metrics import infidelity, sensitivity_max
 from captum.attr import Saliency
 
+def channel_wise_normalize_and_clamp(x):
+    for i in range(3):
+        #x[i] = torch.clamp(x[i] + 0.5 - x[i].mean(), min=-0.999, max=0.999)
+        x[i] = ScaleIntensityRangePercentiles(lower=.1, upper=99.9, b_min=-1, b_max=1, clip=True)(x[i])
+    return x
 
 def normalize_and_clamp(x):
-    for i in range(3):
-        x[i] = torch.clamp(x[i] + 0.5 - x[i].mean(), min=-0.999, max=0.999)
+    print("Normalizing")
+    print(x.min())
+    print(x.max())
+    #x = torch.clamp(x + 0.5 - x.mean(), min=-0.999, max=0.999)
+    x = ScaleIntensityRangePercentiles(lower=.1, upper=99.9, b_min=-1, b_max=1, clip=True)(x)
+    print("Done normalizing")
     return x
 
 class SemanticSegmentationTarget3D:
@@ -283,9 +294,10 @@ def create_agg_segmentation_wrapper(model):
         model_out = model(inp)
         out_max = model_out.argmax(dim=1, keepdim=True)
         selected_inds = torch.zeros_like(model_out).scatter_(1, out_max, 1)
-        # Determine spatial dimensions (supports both 2D and 3D)
+        # Use mean over spatial dims to keep output in per-voxel logit range,
+        # preventing infidelity from scaling with volume size (N^2).
         spatial_dims = tuple(range(2, model_out.dim()))
-        aggregated_logits = (model_out * selected_inds).sum(dim=spatial_dims)
+        aggregated_logits = (model_out * selected_inds).mean(dim=spatial_dims)
         return aggregated_logits
     return wrapper
 
@@ -318,10 +330,10 @@ def create_masked_agg_wrapper(model, target_class, mask=None, threshold=0.5):
             # Generate mask from predictions for target class
             region_mask = (torch.sigmoid(model_out[:, target_class:target_class+1]) > threshold).float()
 
-        # Apply mask and aggregate
+        # Apply mask and aggregate with mean to keep output scale-invariant
         masked_out = model_out * region_mask
         spatial_dims = tuple(range(2, model_out.dim()))
-        aggregated = masked_out.sum(dim=spatial_dims)
+        aggregated = masked_out.mean(dim=spatial_dims)
         return aggregated
     return wrapper
 
