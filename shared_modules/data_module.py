@@ -29,8 +29,12 @@ class DataModule(pl.LightningDataModule):
             splits = ["test"]
         elif stage == "debug":
             splits = ["debug"]
-        else:
+        elif stage == "validation":
+            splits = ["validation"]
+        elif stage == "train" or stage == "training":
             splits = ["training", "validation"]
+        else:
+            raise ValueError("Not a valid split, must be train, test, debug or validate.")
 
         for split in splits:
             if split == "debug":
@@ -46,7 +50,6 @@ class DataModule(pl.LightningDataModule):
                 datalist = self.get_datalist(split)
                 self.transforms[split] = self.get_transforms(split)
 
-            print(datalist)
             self.ds[split] = data.CacheDataset(
                 data=datalist,
                 transform=self.transforms[split],

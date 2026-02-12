@@ -1,18 +1,18 @@
 # trainer:
 gpus: [0]
-max_epochs: 200
+max_epochs: 500
 warmup_epochs: 3
 val_every: 3
 early_stopping_patience: 100
 infer_overlap: 0.25
 lr: 0.0001
-batch_size: 1 # 4
+batch_size: 4 # 4
 sw_batch_size: 4
-num_workers: 24
-cache_rate: 0.0
-checkpoint: #trained_models/cspca_algos_dev_picai/UMambaBot_f0_[predicted_prostate_center_zonal]/UMambaBotMTL/lfg0lwnx/epoch=65-pi_cai_score=0.6434.ckpt
+num_workers: 38 #6
+cache_rate: 1.0
+checkpoint: "/cluster/home/bragehk/U-MambaMTL-XAI/gc_algorithms/base_container/models/umamba_mtl/weights/f1.ckpt"
 save_checkpoint: True
-save_top_k: 1
+save_top_k: 3
 save_last: True
 resume_ckpt: True
 test_mode: False
@@ -22,27 +22,27 @@ fast_dev_run: False # number of training steps for debugging / disable with: Fal
 logger:
   name: wandb
   active: False
-  experiment_name: "UMambaBot_MTL_f0"
+  experiment_name: "UMambaBot_f0_[predicted_prostate_center_zonal]"
   dir: ./trained_models/
-  project: tmp_project
-  entity: mokkalokka
+  project: cspca_algos_dev_picai
+  entity: cimore-comp
   resume_wandb_id: #j12axjf5
   metrics: ["pi_cai_score", "dsc_tumor", "dsc_pz", "dsc_tz"] # Note that the first index is used for early stopping and checkpoint saving (max)
 
 data:
   dataset_name: picai
-  json_list: ../../../json_datalists/picai/fold_0.json
-  data_dir: ../../../data
+  json_list: ../../../json_datalists/picai/fold_1.json
+  data_dir: ../../../../data
 
 
 transforms:
   image_keys: ["image"]
-  label_keys: ["pca", "prostate_pred", "zones"] #["pca", "prostate_pred", "zones"]
-  crop_key:  "prostate_pred" #(Defaults to center crop)
+  label_keys: ["pca", "prostate_pred", "zones"]
+  crop_key: #"prostate_pred" #"prostate" (Defaults to center crop)
   spacing: &spacing [.5,.5,3.0] 
-  # prostate_crop_margin: [128,128,10] #[128,128,10]
+  prostate_crop_margin: [128,128,10]
   padding_mode: "reflect" #"reflect"
-  roi_size: [256,256,20]
+  roi_size: [128,128,20]
   intensity_clipping_lower: 1
   intensity_clipping_upper: 99
 
@@ -59,7 +59,7 @@ transforms:
   RandAffined_prob: 0.2
 
 network:
-  name: UMambaBotMTL
+  name: UMambaBot
   in_channels: 3
   num_classes: 5
   n_stages: 7

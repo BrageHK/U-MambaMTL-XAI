@@ -1,4 +1,4 @@
-from monai.networks.nets import SwinUNETR
+from monai.networks.nets.swin_unetr import SwinUNETR
 from monai.losses import FocalLoss, DiceFocalLoss, TverskyLoss, DeepSupervisionLoss
 from shared_modules.networks.UMambaBot_3d import UMambaBot
 from shared_modules.networks.UMambaBot_3d_mtl import UMambaBotMTL
@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import (
 def get_network(config):
     if config.network.name == "SwinUNETR":
         model = SwinUNETR(
-        img_size=config.network.img_size,
+        #img_size=config.network.img_size,
         in_channels=config.network.in_channels,
         out_channels=config.network.out_channels,
         feature_size=config.network.feature_size,

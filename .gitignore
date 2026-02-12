@@ -11,6 +11,11 @@ Dockerfile
 *.ckpt
 .venv
 
+xai_outputs/
+xai_outputs.old/
+logs/
+*/logs/
+
 # Ignore datasets
 data/**
 !data/prostate158/readme.md

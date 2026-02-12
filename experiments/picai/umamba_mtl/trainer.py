@@ -4,6 +4,9 @@ from pytorch_lightning import Trainer
 from functools import partial
 from monai.metrics import DiceMetric
 from monai.inferers import sliding_window_inference
+from monai.transforms import (
+    AsDiscrete,
+)
 from monai.losses import DiceCELoss
 import warnings
 from shared_modules.data_module import DataModule
@@ -126,7 +129,7 @@ class LitModel(pl.LightningModule):
 
 
 if __name__ == "__main__":
-    config = load_config("experiments/picai/umamba_mtl/config.yaml")
+    config = load_config()
 
     data_module = DataModule(
         config,
