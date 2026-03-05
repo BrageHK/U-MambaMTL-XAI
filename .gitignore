@@ -15,6 +15,9 @@ xai_outputs/
 xai_outputs.old/
 logs/
 */logs/
+results/
+plan.txt
+.claude/
 
 # Ignore datasets
 data/**

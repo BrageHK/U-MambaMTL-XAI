@@ -10,7 +10,7 @@ batch_size: 4 # 4
 sw_batch_size: 4
 num_workers: 38 #6
 cache_rate: 1.0
-checkpoint: "/cluster/home/bragehk/U-MambaMTL-XAI/gc_algorithms/base_container/models/umamba_mtl/weights/f1.ckpt"
+checkpoint: "/cluster/home/bragehk/U-MambaMTL-XAI/gc_algorithms/base_container/models/umamba_mtl/weights/f0.ckpt"
 save_checkpoint: True
 save_top_k: 3
 save_last: True
@@ -31,14 +31,14 @@ logger:
 
 data:
   dataset_name: picai
-  json_list: ../../../json_datalists/picai/fold_1.json
+  json_list: ../../../json_datalists/picai/fold_0.json
   data_dir: ../../../../data
 
 
 transforms:
   image_keys: ["image"]
-  label_keys: ["pca", "prostate_pred", "zones"]
-  crop_key: #"prostate_pred" #"prostate" (Defaults to center crop)
+  label_keys: ["prostate_pred", "zones"] #"pca", 
+  crop_key: "prostate_pred" #"prostate_pred" (Defaults to center crop)
   spacing: &spacing [.5,.5,3.0] 
   prostate_crop_margin: [128,128,10]
   padding_mode: "reflect" #"reflect"

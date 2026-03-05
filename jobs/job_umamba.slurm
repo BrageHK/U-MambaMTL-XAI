@@ -1,15 +1,17 @@
 #!/bin/bash
 #SBATCH --partition=GPUQ
 #SBATCH --account=share-ie-idi
-#SBATCH --time=10:10:00
-#SBATCH --gres=gpu:a100:4
+#SBATCH --time=35:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --constraint="a100|h100"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --mem=168G
+#SBATCH --cpus-per-task=10
+#SBATCH --mem=68G
 #SBATCH --job-name="U-Mamba-XAI-metrics"
-#SBATCH --output=logs/xai/Mamba_%A_%a.txt
-#SBATCH --error=logs/xai/Mamba_%A_%a.err
+#SBATCH --output=logs/xai/UMamba_%A_%a.txt
+#SBATCH --error=logs/xai/UMamba_%A_%a.err
+#SBATCH --array=0-4
 
 WORKDIR=${SLURM_SUBMIT_DIR}
 cd ${WORKDIR}
@@ -23,10 +25,5 @@ echo "We are using $SLURM_CPUS_ON_NODE cores per node"
 echo "Total of $SLURM_NTASKS cores"
 
 module purge
-#module load Python/3.13.5-GCCcore-14.3.0
 
-#pip install uv --user
-
-#uv sync
-
-uv run generate_xai_metrics-parallel.py
+uv run captum_xai.py --fold "$SLURM_ARRAY_TASK_ID" --model "umamba_mtl" --methods "all"

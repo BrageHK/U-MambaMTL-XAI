@@ -1,13 +1,14 @@
 import pytorch_lightning as pl
 from monai import data, transforms
-from monai.data import load_decathlon_datalist, DataLoader
+from monai.data.decathlon_datalist import load_decathlon_datalist
+from monai.data.dataloader import DataLoader
 import torch
 
 class DataModule(pl.LightningDataModule):
     def __init__(
         self,
         config,
-        debug_index: int = None,
+        debug_index: int | None = None,
     ):
         super().__init__()
         self.json_list = config.data.json_list

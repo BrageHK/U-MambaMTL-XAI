@@ -1,28 +1,11 @@
 # Zonal Anatomy-Guided Prostate Cancer Detection in Bi-Parametric MRI using U-Mamba with Multi-Task Learning
-This is the official code for U-Mamba MTL (Submitted to MIDL 2025)
 
-Link to the preprint: https://openreview.net/forum?id=ZkmVQinyAE
-
-
-Abstract:
-
-Prostate cancer (PCa) remains a leading cause of cancer-related morbidity, emphasizing the need for accurate and non-invasive diagnostic tools. While deep learning models have advanced PCa detection in magnetic resonance imaging (MRI), they often fail to integrate anatomical knowledge. This study evaluates U-Mamba, a deep learning architecture designed to enhance long-range dependency modeling with linear time complexity, for PCa detection. Furthermore, a multi-task learning (MTL) extension, U-Mamba MTL, is introduced to incorporate prostate zonal anatomy, aligning with clinical diagnostic work-flows. The models were assessed using diverse datasets, including the PI-CAI hidden tuning cohort (N=100) and an in-house collected out-of-distribution cohort (N=200). Results demonstrate that U-Mamba achieves robust state-of-the-art detection performance, while U-Mamba MTL further improves PCa detection through the auxiliary zonal segmentation task. These findings highlight the potential of integrating U-Mamba with anatomical context to improve PCa detection.
-
-
-
+This is a continuation of of "Zonal Anatomy-Guided Prostate Cancer Detection in Bi-Parametric MRI using U-Mamba with Multi-Task Learning" with explainability.
 
 ## How to install:
 ```
-conda env create --file=environment.yml
-conda activate umamba_mtl
-wandb login # Logging into weights and biases (required for logging during model training)
-```
-
-This will install all packages needed to run the experiments, including the shared modules in /shared_modules.
-A shared module can be loaded like this:
-
-```
-from shared_modules.networks.UMambaBot_3d_mtl.py
+uv venv
+uv sync
 ```
 
 ## Download weights (optional):
@@ -31,7 +14,7 @@ You may choose which weights to download by changing the variables inside ``util
 
 ```
 cd utils
-python download_weights.py
+uv run download_weights.py
 ```
 
 

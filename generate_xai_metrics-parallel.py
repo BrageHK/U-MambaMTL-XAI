@@ -34,11 +34,14 @@ dataset = "picai"
 label_key = "pca"
 checkpoint_path = f"/cluster/home/bragehk/U-MambaMTL-XAI/gc_algorithms/base_container/models/{model}/weights/f{fold}.ckpt"
 
-size = 32
-sliding_window_shapes = (1, size, size, 1)
-strides = (1, size, size, 1)
+size = 16
+sliding_window_shapes = (1, size, size, 2)
+
+stride_size = 8
+strides = (1, stride_size, stride_size, 1)
+
 baselines = 0
-perturbations_per_eval = 16
+perturbations_per_eval = 1
 
 
 def worker_fn(rank, num_gpus, gpu_ids, model):
@@ -58,10 +61,9 @@ def worker_fn(rank, num_gpus, gpu_ids, model):
     model.to(gpu_id)
 
     def agg_segmentation_wrapper(inp):
-        model_out = model(inp)
-        out_max = model_out.argmax(dim=1, keepdim=True)
-        selected_inds = torch.zeros_like(model_out).scatter_(1, out_max, 1)
-        aggregated_logits = (model_out * selected_inds).sum(dim=(2, 3, 4))
+        model_out = model(inp)[:, 0:2, ...]  # (B, 2, H, W, D)
+        pca_mask = (model_out[:, 1, ...].sigmoid() > 0.5).float()  # (B, H, W, D)
+        aggregated_logits = (model_out[:, 1, ...] * pca_mask).sum(dim=(1, 2, 3))  # (B,)
         return aggregated_logits
 
     occlusion = Occlusion(agg_segmentation_wrapper)
@@ -148,27 +150,27 @@ def worker_fn(rank, num_gpus, gpu_ids, model):
         else:
             result["pca_dominant_zone"] = "both"
 
-        sample_dir = OUTPUT_DIR / f"sample_{sample_idx:04d}_{case_id}"
-        sample_dir.mkdir(exist_ok=True)
-        result["maps_dir"] = str(sample_dir)
 
-        target = int(predicted_positive)
-        saliency_map = attribute_fn.attribute(x, target=target, abs=True)
+        if predicted_positive:
+            sample_dir = OUTPUT_DIR / f"sample_{sample_idx:04d}_{case_id}"
+            sample_dir.mkdir(exist_ok=True)
+            result["maps_dir"] = str(sample_dir)
 
-        t0 = time.time()
-        occlusion_map = occlusion.attribute(
-            x,
-            sliding_window_shapes=sliding_window_shapes,
-            strides=strides,
-            baselines=baselines,
-            target=target,
-            perturbations_per_eval=perturbations_per_eval,
-            show_progress=False
-        )
-        print(f"[GPU {gpu_id}] Occlusion took {time.time() - t0:.2f}s")
+            saliency_map = attribute_fn.attribute(x, abs=True)
 
-        torch.save(saliency_map.cpu(), sample_dir / "saliency_map.pt")
-        torch.save(occlusion_map.cpu(), sample_dir / "occlusion_map.pt")
+            t0 = time.time()
+            occlusion_map = occlusion.attribute(
+                x,
+                sliding_window_shapes=sliding_window_shapes,
+                strides=strides,
+                baselines=baselines,
+                perturbations_per_eval=perturbations_per_eval,
+                show_progress=False
+            )
+            print(f"[GPU {gpu_id}] Occlusion took {time.time() - t0:.2f}s")
+
+            torch.save(saliency_map.cpu(), sample_dir / "saliency_map.pt")
+            torch.save(occlusion_map.cpu(), sample_dir / "occlusion_map.pt")
 
         print(f"[GPU {gpu_id}][{sample_idx}] {case_id}: {classification.upper()} | confidence={confidence}% | pz={pca_in_pz} tz={pca_in_tz} | pred: pz={pred_pca_in_pz} tz={pred_pca_in_tz}")
         results.append(result)

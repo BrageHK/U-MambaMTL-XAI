@@ -4,21 +4,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from pathlib import Path
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from shared_modules.xai import create_confusion_matrix
+
 
 parser = argparse.ArgumentParser(description="XAI statistics across all folds for a given model")
-parser.add_argument("--model", type=str, required=True, help="Model name (e.g. umamba_mtl, swin_unetr)")
+parser.add_argument("--model", type=str, default="umamba_mtl", help="Model name (e.g. umamba_mtl, swin_unetr)")
 args = parser.parse_args()
 
 model = args.model
+print(f"Creating stats for: {model}\n")
 MODEL_DIR = Path(f"xai_outputs/{model}")
+CHANNEL_NAMES = ["T2W", "ADC", "HBV"]
 
 # Discover all fold directories
 fold_dirs = sorted(MODEL_DIR.glob("f[0-9]*"))
 if not fold_dirs:
     raise FileNotFoundError(f"No fold directories found in {MODEL_DIR}")
 
-print(f"Model: {model}")
 print(f"Found {len(fold_dirs)} fold(s): {[d.name for d in fold_dirs]}")
 
 # Concatenate results from all folds
@@ -30,32 +32,14 @@ for fold_dir in fold_dirs:
         continue
     with open(results_path) as f:
         fold_results = json.load(f)
-    print(f"  {fold_dir.name}: {len(fold_results)} samples")
+    #print(f"  {fold_dir.name}: {len(fold_results)} samples")
     results.extend(fold_results)
 
 print(f"Total samples across all folds: {len(results)}\n")
 
 OUTPUT_DIR = MODEL_DIR
-CHANNEL_NAMES = ["T2W", "ADC", "DWI"]
+tn, fp, fn, tp = create_confusion_matrix(OUTPUT_DIR, results, model)
 
-# Extract ground truth and predictions
-y_true = [r["has_pca"] for r in results]
-y_pred = [r["predicted_positive"] for r in results]
-
-# Build confusion matrix
-labels = [False, True]
-cm = confusion_matrix(y_true, y_pred, labels=labels)
-
-fig, ax = plt.subplots(figsize=(6, 5))
-disp = ConfusionMatrixDisplay(cm, display_labels=["Negative", "Positive"])
-disp.plot(ax=ax, cmap="Blues", values_format="d")
-ax.set_title(f"{model} — PCa Detection Confusion Matrix (all folds)")
-ax.set_xlabel("Predicted")
-ax.set_ylabel("Actual")
-plt.tight_layout()
-plt.savefig(OUTPUT_DIR / "confusion_matrix.png", dpi=150)
-
-tn, fp, fn, tp = cm.ravel()
 print(f"TP: {tp}  FP: {fp}")
 print(f"FN: {fn}  TN: {tn}")
 print(f"Accuracy:    {(tp + tn) / (tp + tn + fp + fn):.4f}")
@@ -63,15 +47,16 @@ print(f"Sensitivity: {tp / (tp + fn):.4f}")
 print(f"Specificity: {tn / (tn + fp):.4f}")
 print(f"Precision:   {tp / (tp + fp):.4f}")
 print(f"F1 Score:    {2 * tp / (2 * tp + fp + fn):.4f}")
-print(f"Total samples: {len(results)}")
 
 # ---- Tumor zone distribution (PZ vs TZ) ----
 pca_samples = [r for r in results if r["has_pca"]]
-for sample in pca_samples:
-    print(sample["pca_voxels_in_pz"], sample["pca_voxels_in_tz"])
+#for sample in pca_samples:
+    #print(sample["pca_voxels_in_pz"], sample["pca_voxels_in_tz"])
 pz_only = [r for r in pca_samples if r["pca_voxels_in_pz"] > 0 and r["pca_voxels_in_tz"] == 0]
 tz_only = [r for r in pca_samples if r["pca_voxels_in_tz"] > 0 and r["pca_voxels_in_pz"] == 0]
 both = [r for r in pca_samples if r["pca_voxels_in_pz"] > 0 and r["pca_voxels_in_tz"] > 0]
+majority_pz = [r for r in both if r["pca_voxels_in_pz"] > r["pca_voxels_in_tz"]]
+majority_tz = [r for r in both if r["pca_voxels_in_tz"] > r["pca_voxels_in_pz"]]
 
 print(f"\n--- Tumor Zone Distribution (n={len(pca_samples)} PCa cases) ---")
 print(f"PZ only:  {len(pz_only):3d} ({len(pz_only)/len(pca_samples)*100:.1f}%)")
@@ -81,6 +66,8 @@ print(f"Both:     {len(both):3d} ({len(both)/len(pca_samples)*100:.1f}%)")
 # Detection rate per zone
 tp_pz = [r for r in pz_only if r["classification"] == "tp"]
 tp_tz = [r for r in tz_only if r["classification"] == "tp"]
+tp_majority_pz = [r for r in majority_pz if r["classification"] == "tp"]
+tp_majority_tz = [r for r in majority_tz if r["classification"] == "tp"]
 tp_both = [r for r in both if r["classification"] == "tp"]
 
 print(f"\n--- Detection Rate by Zone ---")
@@ -90,6 +77,10 @@ if tz_only:
     print(f"TZ only:  {len(tp_tz)}/{len(tz_only)} detected ({len(tp_tz)/len(tz_only)*100:.1f}%)")
 if both:
     print(f"Both:     {len(tp_both)}/{len(both)} detected ({len(tp_both)/len(both)*100:.1f}%)")
+if majority_pz:
+    print(f"Majority_pz:     {len(tp_majority_pz)}/{len(majority_pz)} detected ({len(tp_majority_pz)/len(majority_pz)*100:.1f}%)")
+if majority_tz:
+    print(f"Majority_tz:     {len(tp_majority_tz)}/{len(majority_tz)} detected ({len(tp_majority_tz)/len(majority_tz)*100:.1f}%)")
 
 # Bar chart
 zone_labels = ["PZ only", "TZ only", "Both zones"]
@@ -161,8 +152,6 @@ for r in samples_with_maps:
 
 print(f"Loaded maps for {len(per_sample_records)} samples.\n")
 
-print(per_sample_records)
-
 # --- Aggregate statistics ---
 for map_name in ["saliency", "occlusion"]:
     all_means = np.stack([r[f"{map_name}_ch_mean"] for r in per_sample_records])
@@ -186,7 +175,7 @@ for map_name in ["saliency", "occlusion"]:
     print()
 
     # Breakdown by classification (TP vs FP)
-    for cls in ["tp", "fp"]:
+    for cls in ["tp", "fp", "tn", "fn"]:
         cls_records = [r for r in per_sample_records if r["classification"] == cls]
         if not cls_records:
             continue
@@ -239,7 +228,7 @@ print("Saved channel_dominance.png")
 fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 for ax, map_name in zip(axes, ["saliency", "occlusion"]):
     all_fracs = np.stack([r[f"{map_name}_ch_fraction"] for r in per_sample_records])
-    bp = ax.boxplot([all_fracs[:, i] for i in range(3)], labels=CHANNEL_NAMES, patch_artist=True)
+    bp = ax.boxplot([all_fracs[:, i] for i in range(3)], tick_labels=CHANNEL_NAMES, patch_artist=True)
     colors = ["#e74c3c", "#2ecc71", "#3498db"]
     for patch, color in zip(bp["boxes"], colors):
         patch.set_facecolor(color)
@@ -275,12 +264,151 @@ for map_name in ["saliency", "occlusion"]:
     plt.savefig(OUTPUT_DIR / f"channel_tp_vs_fp_{map_name}.png", dpi=150)
     print(f"Saved channel_tp_vs_fp_{map_name}.png")
 
+# ============================================================
+# Zone-based Channel Dominance Analysis
+# ============================================================
+print(f"\n{'='*60}")
+print(f"Zone-based Channel Dominance Analysis")
+print(f"{'='*60}")
+
+# Create a mapping from case_id to zone information
+case_to_zone = {}
+for r in results:
+    if r["has_pca"]:
+        case_id = r["case_id"]
+        pz_voxels = r["pca_voxels_in_pz"]
+        tz_voxels = r["pca_voxels_in_tz"]
+        
+        # Determine zone category
+        if pz_voxels > 0 and tz_voxels == 0:
+            zone_category = "PZ only"
+        elif tz_voxels > 0 and pz_voxels == 0:
+            zone_category = "TZ only"
+        elif pz_voxels > 0 and tz_voxels > 0:
+            if pz_voxels > tz_voxels:
+                zone_category = "Both (PZ majority)"
+            elif tz_voxels > pz_voxels:
+                zone_category = "Both (TZ majority)"
+            else:
+                zone_category = "Both (equal)"
+        else:
+            zone_category = "None"
+        
+        case_to_zone[case_id] = {
+            "category": zone_category,
+            "pz_voxels": pz_voxels,
+            "tz_voxels": tz_voxels,
+            "dominant_zone": r["pca_dominant_zone"]
+        }
+
+# Add zone information to per_sample_records
+zone_categories = ["PZ only", "TZ only", "Both (PZ majority)", "Both (TZ majority)"]
+for r in per_sample_records:
+    case_id = r["case_id"]
+    if case_id in case_to_zone:
+        r["zone_category"] = case_to_zone[case_id]["category"]
+        r["zone_dominant"] = case_to_zone[case_id]["dominant_zone"]
+    else:
+        r["zone_category"] = "None"
+        r["zone_dominant"] = None
+
+# Analyze channel dominance by zone category
+for map_name in ["saliency", "occlusion"]:
+    print(f"\n--- {map_name.upper()} Map - Channel Dominance by Tumor Zone ---")
+    print(f"{'Zone Category':<20} {'T2W':>12} {'ADC':>12} {'HBV':>12} {'Total':>8}")
+    print("-" * 72)
+    
+    total_by_zone = {}
+    zone_data = {}  # Store data for plotting
+    
+    for zone_cat in zone_categories:
+        zone_records = [r for r in per_sample_records if r.get("zone_category") == zone_cat]
+        if not zone_records:
+            continue
+        
+        dominant_channels = [r[f"{map_name}_dominant_ch"] for r in zone_records]
+        total_by_zone[zone_cat] = len(zone_records)
+        n = len(zone_records)
+        
+        counts = [dominant_channels.count(i) for i in range(3)]
+        zone_data[zone_cat] = counts
+        pcts = [c / n * 100 for c in counts]
+        print(f"{zone_cat:<20} {counts[0]:>4} ({pcts[0]:4.1f}%) {counts[1]:>4} ({pcts[1]:4.1f}%) {counts[2]:>4} ({pcts[2]:4.1f}%) {n:>8}") 
+    # Create stacked bar chart for zone-based channel dominance
+    if zone_data:
+        zone_labels_filtered = list(zone_data.keys())
+        t2w_counts = [zone_data[z][0] for z in zone_labels_filtered]
+        adc_counts = [zone_data[z][1] for z in zone_labels_filtered]
+        hbv_counts = [zone_data[z][2] for z in zone_labels_filtered]
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(len(zone_labels_filtered))
+        width = 0.6
+        
+        # Stacked bars
+        ax.bar(x, t2w_counts, width, label='T2W', color='#e74c3c')
+        ax.bar(x, adc_counts, width, bottom=t2w_counts, label='ADC', color='#2ecc71')
+        ax.bar(x, hbv_counts, width, bottom=np.array(t2w_counts) + np.array(adc_counts), 
+               label='HBV', color='#3498db')
+        
+        ax.set_xticks(x)
+        ax.set_xticklabels(zone_labels_filtered, rotation=45, ha='right')
+        ax.set_ylabel('Number of Samples')
+        ax.set_title(f'{map_name.capitalize()} — Channel Dominance by Tumor Zone')
+        ax.legend()
+        
+        plt.tight_layout()
+        plt.savefig(OUTPUT_DIR / f'channel_dominance_by_zone_{map_name}.png', dpi=150)
+        print(f"Saved channel_dominance_by_zone_{map_name}.png")
+    
+    print()
+
+# 5) Zone-based average activation comparison
+for map_name in ["saliency", "occlusion"]:
+    zone_filtered_categories = [z for z in zone_categories 
+                               if any(r.get("zone_category") == z for r in per_sample_records)]
+    
+    if not zone_filtered_categories:
+        continue
+    
+    # Calculate average activation per channel for each zone
+    zone_activations = []
+    for zone_cat in zone_filtered_categories:
+        zone_records = [r for r in per_sample_records if r.get("zone_category") == zone_cat]
+        if not zone_records:
+            continue
+        means = np.stack([r[f"{map_name}_ch_mean"] for r in zone_records]).mean(axis=0)
+        zone_activations.append(means)
+    
+    if zone_activations:
+        zone_activations = np.array(zone_activations)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.arange(len(zone_filtered_categories))
+        width = 0.25
+        
+        ax.bar(x - width, zone_activations[:, 0], width, label='T2W', color='#e74c3c', alpha=0.8)
+        ax.bar(x, zone_activations[:, 1], width, label='ADC', color='#2ecc71', alpha=0.8)
+        ax.bar(x + width, zone_activations[:, 2], width, label='HBV', color='#3498db', alpha=0.8)
+        
+        ax.set_xticks(x)
+        ax.set_xticklabels(zone_filtered_categories, rotation=45, ha='right')
+        ax.set_ylabel('Mean Activation')
+        ax.set_title(f'{map_name.capitalize()} — Average Channel Activation by Tumor Zone')
+        ax.legend()
+        
+        plt.tight_layout()
+        plt.savefig(OUTPUT_DIR / f'channel_activation_by_zone_{map_name}.png', dpi=150)
+        print(f"Saved channel_activation_by_zone_{map_name}.png")
+
 # Save per-sample channel stats to JSON
 channel_stats_export = []
 for r in per_sample_records:
     entry = {
         "case_id": r["case_id"],
         "classification": r["classification"],
+        "zone_category": r.get("zone_category", None),
+        "zone_dominant": r.get("zone_dominant", None),
     }
     for map_name in ["saliency", "occlusion"]:
         for i, ch_name in enumerate(CHANNEL_NAMES):
